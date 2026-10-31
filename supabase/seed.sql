@@ -1,0 +1,2 @@
+﻿-- Intentionally empty: companies + users are created via the /onboarding flow.
+-- The onboarding page inserts default statuses and sources for each new company.
