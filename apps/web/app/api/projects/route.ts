@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServerClient } from '@/lib/supabase/server';
 
@@ -17,7 +17,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const parsed = PostBody.safeParse(await req.json());
-  if (!parsed.success) return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
+  if (!parsed.success) {
+    console.error("ZOD ERROR:", parsed.error);
+    return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
+  }
 
   const { data: profile } = await supabase.from('users').select('company_id').eq('id', user.id).single();
   if (!profile) return NextResponse.json({ error: 'profile_not_found' }, { status: 404 });
@@ -33,6 +36,10 @@ export async function POST(req: NextRequest) {
     is_active: true
   }).select('id').single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("DATABASE ERROR:", error.message); // This prints in your terminal!
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  
   return NextResponse.json({ ok: true, id: data.id });
 }

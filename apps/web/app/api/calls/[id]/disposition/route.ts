@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createServerClient } from '@/lib/supabase/server';
+import { apiHandler, requireApiUser, ApiError } from '@/lib/api/require-user';
+import { logAudit } from '@/lib/audit/log';
 
 const Body = z.object({
   dispositionId: z.string().uuid(),
@@ -16,15 +17,21 @@ const Body = z.object({
   }).optional(),
 });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
+export const POST = apiHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
+  const { supabase, companyId, userId } = await requireApiUser();
   const parsed = Body.safeParse(await req.json());
-  if (!parsed.success) return NextResponse.json({ error: 'invalid_body', issues: parsed.error.issues }, { status: 400 });
-  const b = parsed.data;
+  if (!parsed.success) throw new ApiError('invalid_body', 400);
 
+  const { data: call } = await supabase
+    .from('calls')
+    .select('id, agent_id, lead_id')
+    .eq('id', params.id)
+    .eq('company_id', companyId)
+    .maybeSingle();
+  if (!call) throw new ApiError('call_not_found', 404);
+  if (call.agent_id !== userId) throw new ApiError('forbidden', 403);
+
+  const b = parsed.data;
   const { data, error } = await supabase.rpc('apply_call_disposition', {
     p_call_id: params.id,
     p_disposition_id: b.dispositionId,
@@ -42,7 +49,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (error) {
     const known = ['call_not_found', 'disposition_not_found', 'notes_required', 'forbidden'];
     const code = known.find((k) => error.message.includes(k)) ?? 'disposition_failed';
-    return NextResponse.json({ error: code }, { status: code === 'forbidden' ? 403 : 400 });
+    throw new ApiError(code, code === 'forbidden' ? 403 : 400);
   }
+
+  await logAudit(supabase, {
+    companyId, actorId: userId, entity: 'call', entityId: params.id,
+    action: 'disposition_saved', meta: { dispositionId: b.dispositionId, hasVisit: !!b.siteVisit },
+  });
+
   return NextResponse.json({ ok: true, result: data });
-}
+});
