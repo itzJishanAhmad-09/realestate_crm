@@ -1,5 +1,1 @@
-﻿{
-  "crons": [
-    { "path": "/api/cron/speed-to-lead", "schedule": "* * * * *" }
-  ]
-}
+﻿{"buildCommand": "cd ../.. && pnpm --filter web build", "installCommand": "cd ../.. && pnpm install", "framework": "nextjs"}
