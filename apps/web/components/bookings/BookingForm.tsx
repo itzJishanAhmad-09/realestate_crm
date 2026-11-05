@@ -2,10 +2,16 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function BookingForm() {
+export function BookingForm({
+  defaultLeadId,
+  defaultProjectId,
+}: {
+  defaultLeadId?: string;
+  defaultProjectId?: string;
+}) {
   const router = useRouter();
-  const [leadId, setLeadId] = useState('');
-  const [projectId, setProjectId] = useState('');
+  const [leadId, setLeadId] = useState(defaultLeadId || '');
+  const [projectId, setProjectId] = useState(defaultProjectId || '');
   const [unitId, setUnitId] = useState('');
   const [basePrice, setBasePrice] = useState('');
   const [totalValue, setTotalValue] = useState('');
@@ -34,7 +40,7 @@ export function BookingForm() {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? 'create_failed');
-      router.push(`/bookings/${j.id}`);
+      router.push('/bookings/' + j.id);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }

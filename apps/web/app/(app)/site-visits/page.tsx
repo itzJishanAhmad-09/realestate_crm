@@ -12,7 +12,6 @@ export default async function SiteVisitsPage() {
 
   const cid = profile.company_id;
 
-  // Fetch all necessary data in parallel
   const [
     { data: visits },
     { data: leads },
@@ -25,7 +24,6 @@ export default async function SiteVisitsPage() {
     supabase.from('users').select('id, full_name').eq('company_id', cid)
   ]);
 
-  // Stitch data together securely
   const enrichedVisits = (visits ?? []).map((v: any) => ({
     ...v,
     leads: leads?.find((l: any) => l.id === v.lead_id) || null,
@@ -33,18 +31,19 @@ export default async function SiteVisitsPage() {
     users: users?.find((u: any) => u.id === v.assigned_to) || null,
   }));
 
-  // Calculate Stats
   const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-  
-  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const tomorrowStart = todayStart + 86400000;
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
   const stats = {
-    today: enrichedVisits.filter(v => v.scheduled_for >= todayStart && v.scheduled_for < tomorrowStart).length,
-    thisWeek: enrichedVisits.filter(v => v.scheduled_for >= weekStart).length,
-    completedThisMonth: enrichedVisits.filter(v => v.status === 'completed' && v.scheduled_for >= monthStart).length,
+    today: enrichedVisits.filter(v => {
+      const t = new Date(v.scheduled_for).getTime();
+      return t >= todayStart && t < tomorrowStart;
+    }).length,
+    thisWeek: enrichedVisits.filter(v => new Date(v.scheduled_for).getTime() >= weekStart).length,
+    completedThisMonth: enrichedVisits.filter(v => v.status === 'completed' && new Date(v.scheduled_for).getTime() >= monthStart).length,
     noShows: enrichedVisits.filter(v => v.status === 'no_show').length,
   };
 
